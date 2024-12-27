@@ -30,6 +30,7 @@ int main(void) {
 	ecs_startup(3, sizeof(Rectangle), sizeof(Vector2), sizeof(Color));
 	ecs_system(system_move, 2, 0, 1);
 	ecs_system(system_draw, 2, 0, 2);
+	printf("Does this work? %u\n", ~4);
 
 	Entity player = create_entity();
 	add_component(player, 0, &(Rectangle){ .x = 100.f, .y = 100.f, .width = 50.f, .height = 50.f });
