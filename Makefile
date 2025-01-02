@@ -1,6 +1,6 @@
 # Compiler and flags
 CC := gcc
-CFLAGS := -Wall -std=c99 -Wfatal-errors
+CFLAGS := -Wall -g -std=c99 -Wfatal-errors
 
 # Executable
 EXEC := raylib_tutorial

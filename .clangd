@@ -1,2 +1,2 @@
 CompileFlags:
-  Add: [-xc, -I/home/kahput/projects/raylib_tutorial/src/]
+  Add: [-xc, -I/home/kahput/projects/raylib_tutorial/src]
