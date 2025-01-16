@@ -13,23 +13,27 @@ typedef enum {
 } Components;
 
 void system_move(Query* query) {
-	for (int i = 0; i < query->count; i++) {
-		Vector2* vel = (Vector2*)query->primary(query->id, i);
-		Rectangle* rect = (Rectangle*)query->secondary(query->id, i, COMPONENT_RECT);
-		rect->x += vel->x;
-		rect->y += vel->y;
+	Rectangle* rects = query->fetch_components(query, COMPONENT_RECT);
+	Vector2* velocities = query->fetch_components(query, COMPONENT_POSITION);
 
-		if (rect->x + rect->width >= 1280)
-			vel->x *= -1;
-		if (rect->x <= 0)
-			vel->x *= -1;
+	for (int i = 0; i < query->count; i++) {
+		rects[i].x += velocities[i].x;
+		rects[i].y += velocities[i].y;
+
+		if (rects[i].x + rects[i].width >= 1280)
+			velocities[i].x *= -1;
+		if (rects[i].x <= 0)
+			velocities[i].x *= -1;
 	}
 }
 
 void system_draw(Query* query) {
+	Rectangle* rects = query->fetch_components(query, COMPONENT_RECT);
+	Color* colors = query->fetch_components(query, COMPONENT_COLOR);
+
 	for (int i = 0; i < query->count; i++) {
-		Rectangle* rect = (Rectangle*)query->primary(query->id, i);
-		Color* color = (Color*)query->secondary(query->id, i, COMPONENT_COLOR);
+		Rectangle* rect = &rects[i];
+		Color* color = &colors[i];
 
 		DrawRectangleRec(*rect, *color);
 	}
