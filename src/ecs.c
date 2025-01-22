@@ -1,59 +1,59 @@
 #include "ecs.h"
-#include "defines.h"
 
 #include <stdarg.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
+#include <assert.h>
 
 #define ENTITY_INDEX_BITS 24
 #define ENTITY_GENERATION_BITS 8
 #define ENTITY_INDEX_MASK ((1 << ENTITY_INDEX_BITS) - 1)
 #define ENTITY_GENERATION_MASK ((1 << ENTITY_GENERATION_BITS) - 1)
 
+typedef struct _ecs_sparse_set {
+} SparseSet;
 typedef struct {
 	void* data;
 	size_t element_size;
-	u32 count, capacity;
+	uint32_t count, capacity;
 } ComponentArray;
 
 typedef struct {
 	SystemPointer ptr;
-	u32* entities;
-	u32 signature, component_count, entity_count, entity_capcity;
+	uint32_t* entities;
+	uint32_t signature, component_count, entity_count, entity_capcity;
 } System;
 
 typedef struct {
 	ComponentArray components[MAX_COMPONENTS];
 	System systems[MAX_SYSTEMS];
 	ComponentView view;
-	u32 component_count, system_count;
-	u32 *entity_signatures, *entity_to_index, *index_to_entity, *entity_free_ids;
-	u32 entity_next_id, entity_count, entity_capcity, entity_free_ids_count, systems_entity_capacity;
+	uint32_t component_count, system_count;
+	uint32_t *entity_signatures, *entity_to_index, *index_to_entity, *entity_free_ids;
+	uint32_t entity_next_id, entity_count, entity_capcity, entity_free_ids_count, systems_entity_capacity;
 } ECS;
 
 static ECS g_world = { 0 };
 
 // Helper functions
-u32 get_entity_id(Entity entity) {
+uint32_t get_entity_id(Entity entity) {
 	return entity & ENTITY_INDEX_MASK;
 }
 
-u8 get_entity_generation(Entity entity) {
+uint8_t get_entity_generation(Entity entity) {
 	return (entity >> ENTITY_INDEX_BITS) & ENTITY_GENERATION_MASK;
 }
 
 void add_entity_to_systems(Entity entity) {
 	for (int sys = 0; sys < g_world.system_count; sys++) {
 		System* system = &g_world.systems[sys];
-		u32 index = g_world.entity_to_index[get_entity_id(entity)];
+		uint32_t index = g_world.entity_to_index[get_entity_id(entity)];
 
 		if ((g_world.entity_signatures[index] & system->signature) == system->signature) {
 			if (system->entity_count == system->entity_capcity) {
 				system->entity_capcity = system->entity_capcity ? system->entity_capcity * 2 : 32;
-				u32* tmp = realloc(system->entities, system->entity_capcity * sizeof(u32));
+				uint32_t* tmp = realloc(system->entities, system->entity_capcity * sizeof(uint32_t));
 				if (!tmp) {
 					printf("Realloc failed for system->entites\n");
 					exit(EXIT_FAILURE);
@@ -85,12 +85,12 @@ void add_entity_to_systems(Entity entity) {
 void remove_entity_from_systems(Entity entity) {
 	for (int sys = 0; sys < g_world.system_count; sys++) {
 		System* system = &g_world.systems[sys];
-		u32 index = g_world.entity_to_index[get_entity_id(entity)];
+		uint32_t index = g_world.entity_to_index[get_entity_id(entity)];
 
 		for (int index = 0; index < system->entity_count; index++) {
 			if (system->entities[index] == entity) {
 				printf("Here\n");
-				u32 last_index = system->entity_count - 1;
+				uint32_t last_index = system->entity_count - 1;
 				if (index != last_index)
 					system->entities[index] = system->entities[last_index];
 
@@ -101,7 +101,7 @@ void remove_entity_from_systems(Entity entity) {
 	}
 }
 
-void ecs_startup(u32 component_count, ...) {
+void ecs_startup(uint32_t component_count, ...) {
 	assert(component_count <= MAX_COMPONENTS);
 	g_world.component_count = component_count;
 
@@ -137,39 +137,39 @@ void ecs_shutdown() {
 Entity ecs_entity_create() {
 	if (g_world.entity_count == g_world.entity_capcity) {
 		g_world.entity_capcity = g_world.entity_capcity ? g_world.entity_capcity * 2 : 32;
-		u32* tmp = realloc(g_world.entity_signatures, g_world.entity_capcity * sizeof(u32));
+		uint32_t* tmp = realloc(g_world.entity_signatures, g_world.entity_capcity * sizeof(uint32_t));
 		if (!tmp) {
 			printf("Realloc failed for entity_signatures\n");
 			exit(EXIT_FAILURE); // Or handle error
 		}
 		g_world.entity_signatures = tmp;
 
-		tmp = realloc(g_world.index_to_entity, g_world.entity_capcity * sizeof(u32));
+		tmp = realloc(g_world.index_to_entity, g_world.entity_capcity * sizeof(uint32_t));
 		if (!tmp) {
 			printf("Realloc failed for index_to_entity\n");
 			exit(EXIT_FAILURE); // Or handle error
 		}
 		g_world.index_to_entity = tmp;
 
-		tmp = realloc(g_world.entity_to_index, g_world.entity_capcity * sizeof(u32));
+		tmp = realloc(g_world.entity_to_index, g_world.entity_capcity * sizeof(uint32_t));
 		if (!tmp) {
 			printf("Realloc failed for entity_to_index\n");
 			exit(EXIT_FAILURE); // Or handle error
 		}
 		g_world.entity_to_index = tmp;
 
-		tmp = realloc(g_world.entity_free_ids, g_world.entity_capcity * sizeof(u32));
+		tmp = realloc(g_world.entity_free_ids, g_world.entity_capcity * sizeof(uint32_t));
 		if (!tmp) {
 			printf("Realloc failed for entity_free_ids\n");
 			exit(EXIT_FAILURE); // Or handle error
 		}
 		g_world.entity_free_ids = tmp;
-		memset(g_world.index_to_entity + g_world.entity_count, 0, (g_world.entity_capcity - g_world.entity_count) * sizeof(u32));
+		memset(g_world.index_to_entity + g_world.entity_count, 0, (g_world.entity_capcity - g_world.entity_count) * sizeof(uint32_t));
 
 		printf("INFO: ENTITY: Capacity resized to %d.\n", g_world.entity_capcity);
 	}
 
-	u32 entity_id, index;
+	uint32_t entity_id, index;
 	if (g_world.entity_free_ids_count > 0) {
 		entity_id = g_world.entity_free_ids[--g_world.entity_free_ids_count];
 		index = g_world.entity_count++;
@@ -177,7 +177,7 @@ Entity ecs_entity_create() {
 		entity_id = index = g_world.entity_count++;
 	}
 
-	u8 entity_generation = get_entity_generation(g_world.index_to_entity[index]);
+	uint8_t entity_generation = get_entity_generation(g_world.index_to_entity[index]);
 	if (entity_generation == 0) {
 		entity_generation = 1;
 		printf("INFO: ENTITY: [ID %d] Entity generation initialized to 0\n", index);
@@ -196,28 +196,28 @@ void ecs_entity_destory(Entity entity) {
 		printf("WARNING: ENTITY: [ID %d] Invalid entity in ecs_destroy_entity()\n", get_entity_id(entity));
 		return;
 	}
-	u32 deleted_entity_id = get_entity_id(entity);
-	u32 deleted_entity_index = g_world.entity_to_index[deleted_entity_id];
-	u32 deleted_entity_generation = get_entity_generation(entity);
-	u32 last_index = --g_world.entity_count;
+	uint32_t deleted_entity_id = get_entity_id(entity);
+	uint32_t deleted_entity_index = g_world.entity_to_index[deleted_entity_id];
+	uint32_t deleted_entity_generation = get_entity_generation(entity);
+	uint32_t last_index = --g_world.entity_count;
 
 	remove_entity_from_systems(entity);
 
 	printf("INFO: ENTITY: [ID %d | IDX %d | GEN %d] Entity marked for deletion\n", deleted_entity_id, deleted_entity_index, deleted_entity_generation);
 
 	if (deleted_entity_index != last_index) {
-		for (u32 comp = 0; comp < g_world.component_count; comp++) {
+		for (uint32_t comp = 0; comp < g_world.component_count; comp++) {
 			size_t element_size = g_world.components[comp].element_size;
 			void* component_data = g_world.components[comp].data;
 
-			void* dst = (u8*)component_data + deleted_entity_index * element_size;
-			void* src = (u8*)component_data + last_index * element_size;
+			void* dst = (uint8_t*)component_data + deleted_entity_index * element_size;
+			void* src = (uint8_t*)component_data + last_index * element_size;
 			memcpy(dst, src, element_size);
 		}
 
 		Entity moved_entity = g_world.index_to_entity[last_index];
-		u32 moved_entity_id = get_entity_id(moved_entity);
-		u32 moved_entity_generation = get_entity_generation(moved_entity);
+		uint32_t moved_entity_id = get_entity_id(moved_entity);
+		uint32_t moved_entity_generation = get_entity_generation(moved_entity);
 		g_world.entity_to_index[moved_entity_id] = deleted_entity_index;
 		g_world.index_to_entity[deleted_entity_index] = moved_entity;
 		g_world.entity_signatures[deleted_entity_index] = g_world.entity_signatures[last_index];
@@ -238,9 +238,9 @@ void ecs_entity_destory(Entity entity) {
 }
 
 bool ecs_entity_validate(Entity entity) {
-	u32 entity_id = get_entity_id(entity);
-	u8 entity_generation = get_entity_generation(entity);
-	u32 entity_index = g_world.entity_to_index[entity_id];
+	uint32_t entity_id = get_entity_id(entity);
+	uint8_t entity_generation = get_entity_generation(entity);
+	uint32_t entity_index = g_world.entity_to_index[entity_id];
 
 	if (entity_index >= g_world.entity_count)
 		return false;
@@ -250,14 +250,14 @@ bool ecs_entity_validate(Entity entity) {
 	return true;
 }
 
-void ecs_component_attach(Entity entity, u32 component_id, void* data) {
+void ecs_component_attach(Entity entity, uint32_t component_id, void* data) {
 	assert(component_id < g_world.component_count);
 	if (!ecs_entity_validate(entity)) {
 		printf("WARNING: ENTITY: [ID %d] Invalid entity in ecs_attach_component()\n", get_entity_id(entity));
 		return;
 	}
-	u32 entity_id = get_entity_id(entity);
-	u32 index = g_world.entity_to_index[entity_id];
+	uint32_t entity_id = get_entity_id(entity);
+	uint32_t index = g_world.entity_to_index[entity_id];
 
 	if ((g_world.entity_signatures[index] & (1 << component_id)) == (1 << component_id)) {
 		printf("WARNING: ENTITY: [ID %d | %zuB] Component already added to entity [ID %d]\n", component_id, g_world.components[component_id].element_size, index);
@@ -275,7 +275,7 @@ void ecs_component_attach(Entity entity, u32 component_id, void* data) {
 	}
 
 	g_world.entity_signatures[index] |= 1 << component_id;
-	memcpy((u8*)array->data + index * element_size, data, element_size);
+	memcpy((uint8_t*)array->data + index * element_size, data, element_size);
 
 	printf("INFO: COMPONENT: [ID %d | %zuB] Component added to entity [ID %d] at index %d\n", component_id, element_size, entity_id, index);
 	array->count++;
@@ -284,14 +284,14 @@ void ecs_component_attach(Entity entity, u32 component_id, void* data) {
 	add_entity_to_systems(entity);
 }
 
-void ecs_component_detach(Entity entity, u32 component_id) {
+void ecs_component_detach(Entity entity, uint32_t component_id) {
 	assert(component_id < g_world.component_count);
 	if (!ecs_entity_validate(entity)) {
 		printf("WARNING: ENTITY: [ID %d] Invalid entity in ecs_detach_component()\n", get_entity_id(entity));
 		return;
 	}
-	u32 entity_id = get_entity_id(entity);
-	u32 index = g_world.entity_to_index[entity_id];
+	uint32_t entity_id = get_entity_id(entity);
+	uint32_t index = g_world.entity_to_index[entity_id];
 	assert(index < g_world.entity_count);
 	assert(component_id < g_world.component_count);
 	ComponentArray* array = &g_world.components[component_id];
@@ -303,50 +303,50 @@ void ecs_component_detach(Entity entity, u32 component_id) {
 	add_entity_to_systems(entity);
 }
 
-bool ecs_component_status(Entity entity, u32 component_id) {
-	u32 index = g_world.entity_to_index[get_entity_id(entity)];
+bool ecs_component_status(Entity entity, uint32_t component_id) {
+	uint32_t index = g_world.entity_to_index[get_entity_id(entity)];
 	return (g_world.entity_signatures[index] & (1 << component_id)) == (1 << component_id);
 }
 
-void* ecs_component_fetch(Entity entity, u32 component_id) {
+void* ecs_component_fetch(Entity entity, uint32_t component_id) {
 	assert(component_id < g_world.component_count);
 	if (!ecs_entity_validate(entity)) {
 		printf("WARNING: ENTITY: [ID %d] Invalid entity in ecs_fetch_component()\n", get_entity_id(entity));
 		return NULL;
 	}
-	u32 entity_id = get_entity_id(entity);
-	u32 index = g_world.entity_to_index[entity_id];
+	uint32_t entity_id = get_entity_id(entity);
+	uint32_t index = g_world.entity_to_index[entity_id];
 	assert(index < g_world.entity_count);
 	assert(component_id < g_world.component_count);
 	ComponentArray* array = &g_world.components[component_id];
 	size_t element_size = g_world.components[component_id].element_size;
 
-	return ((u8*)array->data + index * element_size);
+	return ((uint8_t*)array->data + index * element_size);
 	return NULL;
 }
 
-void ecs_system_attach(SystemPointer system_ptr, u32 component_count, ...) {
+void ecs_system_attach(SystemPointer system_ptr, uint32_t component_count, ...) {
 	assert(component_count <= MAX_COMPONENTS && g_world.system_count < MAX_SYSTEMS);
 	System* system = &g_world.systems[g_world.system_count++];
 
 	va_list args;
 	va_start(args, component_count);
 	for (int i = 0; i < component_count; i++) {
-		system->signature |= 1 << va_arg(args, u32);
+		system->signature |= 1 << va_arg(args, uint32_t);
 	}
 	system->ptr = system_ptr;
 	system->component_count = component_count;
 	va_end(args);
 
 	system->entity_count = system->entity_capcity = 0;
-	u32 relevant_indices[g_world.entity_count];
+	uint32_t relevant_indices[g_world.entity_count];
 	for (int index = 0; index < g_world.entity_count; index++) {
 		if ((g_world.entity_signatures[index] & system->signature) == system->signature) {
 			relevant_indices[system->entity_count++] = index;
 		}
 	}
 
-	system->entities = malloc(system->entity_count * sizeof(u32));
+	system->entities = malloc(system->entity_count * sizeof(uint32_t));
 	system->entity_capcity = system->entity_count;
 	for (int index = 0; index < system->entity_capcity; index++) {
 		system->entities[index] = g_world.index_to_entity[relevant_indices[index]];
@@ -355,11 +355,11 @@ void ecs_system_attach(SystemPointer system_ptr, u32 component_count, ...) {
 	printf("INFO: SYSTEM: [IDX %d | SIG %d] System added\n", (g_world.system_count - 1), system->signature);
 }
 
-void* ecs_components_fetch(ComponentView* view, u32 component_id) {
+void* ecs_components_fetch(ComponentView* view, uint32_t component_id) {
 	return view->data[component_id];
 }
 
-void ecs_update(f64 dt) {
+void ecs_update(double dt) {
 	for (int sys = 0; sys < g_world.system_count; sys++) {
 		System* system = &g_world.systems[sys];
 
@@ -367,11 +367,11 @@ void ecs_update(f64 dt) {
 		view->count = system->entity_count;
 
 		for (int index = 0; index < system->entity_count; index++) {
-			u32 entity_component_index = g_world.entity_to_index[get_entity_id(system->entities[index])];
+			uint32_t entity_component_index = g_world.entity_to_index[get_entity_id(system->entities[index])];
 			for (int comp = 0; comp < g_world.component_count; comp++) {
 				ComponentArray* component = &g_world.components[comp];
-				void* dst = (u8*)view->data[comp] + index * component->element_size;
-				void* src = (u8*)component->data + entity_component_index * component->element_size;
+				void* dst = (uint8_t*)view->data[comp] + index * component->element_size;
+				void* src = (uint8_t*)component->data + entity_component_index * component->element_size;
 				memcpy(dst, src, component->element_size);
 			}
 		}
@@ -379,11 +379,11 @@ void ecs_update(f64 dt) {
 		system->ptr(view);
 
 		for (int index = 0; index < system->entity_count; index++) {
-			u32 entity_component_index = g_world.entity_to_index[get_entity_id(system->entities[index])];
+			uint32_t entity_component_index = g_world.entity_to_index[get_entity_id(system->entities[index])];
 			for (int comp = 0; comp < g_world.component_count; comp++) {
 				ComponentArray* component = &g_world.components[comp];
-				void* src = (u8*)view->data[comp] + index * component->element_size;
-				void* dst = (u8*)component->data + entity_component_index * component->element_size;
+				void* src = (uint8_t*)view->data[comp] + index * component->element_size;
+				void* dst = (uint8_t*)component->data + entity_component_index * component->element_size;
 				memcpy(dst, src, component->element_size);
 			}
 		}
